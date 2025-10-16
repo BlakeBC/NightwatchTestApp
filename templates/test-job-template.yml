@@ -1,0 +1,100 @@
+# Reusable template for Nightwatch test jobs
+parameters:
+  - name: browser
+    type: string
+    default: 'chrome'
+  - name: headless
+    type: boolean
+    default: false
+
+steps:
+  - task: NodeTool@0
+    displayName: 'Setup Node.js'
+    inputs:
+      versionSpec: '18.x'
+
+  - task: Cache@2
+    displayName: 'Cache npm packages'
+    inputs:
+      key: 'npm | "$(Agent.OS)" | package-lock.json'
+      restoreKeys: |
+        npm | "$(Agent.OS)"
+      path: $(Pipeline.Workspace)/.npm
+
+  - script: |
+      npm ci --cache $(Pipeline.Workspace)/.npm
+    displayName: 'Install dependencies'
+
+  - script: |
+      # Install browser based on parameter
+      if [ "${{ parameters.browser }}" == "chrome" ]; then
+        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+        google-chrome --version
+      elif [ "${{ parameters.browser }}" == "firefox" ]; then
+        sudo apt-get update
+        sudo apt-get install -y firefox
+        firefox --version
+      fi
+    displayName: 'Install ${{ parameters.browser }} browser'
+
+  - script: |
+      # Start application server
+      npm start &
+      SERVER_PID=$!
+      echo "Server started with PID: $SERVER_PID"
+
+      # Wait for server
+      for i in {1..30}; do
+        if curl -f http://localhost:8080 2>/dev/null; then
+          echo "Server is ready"
+          break
+        fi
+        echo "Waiting for server... ($i/30)"
+        sleep 1
+      done
+
+      echo $SERVER_PID > server.pid
+    displayName: 'Start application server'
+
+  - script: |
+      # Configure test command based on parameters
+      if [ "${{ parameters.headless }}" == "true" ]; then
+        TEST_ENV="${{ parameters.browser }}.headless"
+      else
+        TEST_ENV="${{ parameters.browser }}"
+      fi
+
+      export DISPLAY=:99.0
+
+      # Run tests
+      npx nightwatch --env $TEST_ENV --reporter junit --output tests_output
+    displayName: 'Run Nightwatch tests (${{ parameters.browser }}${{ parameters.headless == true && " headless" || "" }})'
+    continueOnError: true
+
+  - script: |
+      # Stop server
+      if [ -f server.pid ]; then
+        kill $(cat server.pid) || true
+        rm server.pid
+      fi
+    displayName: 'Cleanup server'
+    condition: always()
+
+  - task: PublishTestResults@2
+    displayName: 'Publish test results'
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/tests_output/*.xml'
+      testRunTitle: 'Nightwatch - ${{ parameters.browser }}${{ parameters.headless == true && " Headless" || "" }}'
+      failTaskOnFailedTests: false
+    condition: always()
+
+  - task: PublishPipelineArtifact@1
+    displayName: 'Publish failure screenshots'
+    inputs:
+      targetPath: 'tests_output/screenshots'
+      artifact: 'screenshots-${{ parameters.browser }}${{ parameters.headless == true && "-headless" || "" }}'
+    condition: failed()

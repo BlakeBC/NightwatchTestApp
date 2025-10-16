@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test output
+tests_output/
+test-results/
+*.xml
+*.log
+
+# Screenshots from failed tests
+screenshots/
+*.png
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Coverage
+coverage/
+*.lcov
+.nyc_output
+
+# Build files
+dist/
+build/
+
+# Nightwatch
+nightwatch/
+chromedriver.log
+geckodriver.log
+selenium-debug.log
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Package lock files (optional - uncomment if you prefer not to track)
+# package-lock.json
+# yarn.lock

@@ -1,0 +1,22 @@
+{
+  "name": "asteroids-nightwatch-test",
+  "version": "1.0.0",
+  "description": "Asteroids game with Nightwatch E2E tests",
+  "main": "index.js",
+  "scripts": {
+    "start": "http-server -p 8080",
+    "test": "nightwatch",
+    "test:chrome": "nightwatch --env chrome",
+    "test:firefox": "nightwatch --env firefox",
+    "test:headless": "nightwatch --env chrome.headless"
+  },
+  "keywords": ["asteroids", "game", "nightwatch", "testing"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "nightwatch": "^3.3.0",
+    "chromedriver": "^120.0.0",
+    "geckodriver": "^4.2.0",
+    "http-server": "^14.1.1"
+  }
+}

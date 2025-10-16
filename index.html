@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroids Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="game-header">
+            <div id="score-display">Score: <span id="score">0</span></div>
+            <div id="lives-display">Lives: <span id="lives">3</span></div>
+            <div id="level-display">Level: <span id="level">1</span></div>
+            <div id="high-score-display">High Score: <span id="high-score">0</span></div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="game-controls">
+            <button id="start-button" class="game-button">Start Game</button>
+            <button id="pause-button" class="game-button" disabled>Pause</button>
+            <button id="reset-button" class="game-button">Reset</button>
+            <button id="sound-toggle" class="game-button">Sound: ON</button>
+        </div>
+
+        <div id="game-over-screen" class="overlay hidden">
+            <div class="overlay-content">
+                <h2>GAME OVER</h2>
+                <p>Final Score: <span id="final-score">0</span></p>
+                <button id="play-again" class="game-button">Play Again</button>
+            </div>
+        </div>
+
+        <div id="pause-screen" class="overlay hidden">
+            <div class="overlay-content">
+                <h2>PAUSED</h2>
+                <p>Press P or click Resume to continue</p>
+                <button id="resume-button" class="game-button">Resume</button>
+            </div>
+        </div>
+
+        <div id="instructions">
+            <h3>Controls:</h3>
+            <ul>
+                <li><kbd>↑</kbd> or <kbd>W</kbd> - Thrust</li>
+                <li><kbd>←</kbd> or <kbd>A</kbd> - Rotate Left</li>
+                <li><kbd>→</kbd> or <kbd>D</kbd> - Rotate Right</li>
+                <li><kbd>Space</kbd> - Fire</li>
+                <li><kbd>P</kbd> - Pause</li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
