@@ -8,7 +8,7 @@ module.exports = {
   custom_commands_path: [],
   custom_assertions_path: [],
   plugins: [],
-  globals_path: '',
+  globals_path: './nightwatch.globals.js',
 
   webdriver: {
     start_process: true,

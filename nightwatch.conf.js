@@ -16,7 +16,7 @@ module.exports = {
   plugins: [],
 
   // See https://nightwatchjs.org/guide/concepts/test-globals.html
-  globals_path: '',
+  globals_path: './nightwatch.globals.js',
 
   webdriver: {
     start_process: true,

@@ -7,23 +7,30 @@
     "start": "http-server -p 8080",
     "setup": "node setup-drivers.js",
     "postinstall": "node setup-drivers.js",
-    "test": "nightwatch",
-    "test:auto": "nightwatch --config nightwatch-auto.conf.js",
-    "test:chrome": "nightwatch --env chrome",
-    "test:firefox": "nightwatch --env firefox",
-    "test:headless": "nightwatch --env chrome.headless",
-    "test:all": "nightwatch --env chrome,firefox",
-    "test:debug": "nightwatch --env chrome --verbose"
+    "test": "node test-runner.js",
+    "test:auto": "node test-runner.js --config nightwatch-auto.conf.js",
+    "test:chrome": "node test-runner.js --env chrome",
+    "test:firefox": "node test-runner.js --env firefox",
+    "test:headless": "node test-runner.js --env chrome.headless",
+    "test:all": "node test-runner.js --env chrome,firefox",
+    "test:debug": "node test-runner.js --env chrome --verbose",
+    "test:noserver": "nightwatch",
+    "server:test": "http-server -p 8080"
   },
-  "keywords": ["asteroids", "game", "nightwatch", "testing"],
+  "keywords": [
+    "asteroids",
+    "game",
+    "nightwatch",
+    "testing"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "nightwatch": "^3.3.0",
     "@nightwatch/selenium-server": "^4.4.0",
-    "chromedriver": "^130.0.0",
+    "chromedriver": "^140.0.4",
     "geckodriver": "^4.4.0",
     "http-server": "^14.1.1",
+    "nightwatch": "^3.3.0",
     "selenium-webdriver": "^4.15.0"
   }
 }
