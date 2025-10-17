@@ -1,0 +1,188 @@
+# Azure DevOps Pipeline using Service Containers
+# This approach runs tests on the VM but uses Docker containers for browsers
+
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+variables:
+  NODE_VERSION: '18.x'
+
+stages:
+  - stage: Test
+    displayName: 'Browser Tests with Service Containers'
+    jobs:
+      - job: ChromeTests
+        displayName: 'Chrome Tests'
+        pool:
+          vmImage: 'ubuntu-latest'
+        services:
+          selenium:
+            image: selenium/standalone-chrome:latest
+            ports:
+              - 4444:4444
+            options: >-
+              --shm-size="2g"
+              --health-cmd="curl -f http://localhost:4444/wd/hub/status || exit 1"
+              --health-interval=10s
+              --health-timeout=5s
+              --health-retries=5
+        steps:
+          - task: NodeTool@0
+            displayName: 'Setup Node.js'
+            inputs:
+              versionSpec: '18.x'
+
+          - script: |
+              npm ci
+            displayName: 'Install dependencies'
+
+          - script: |
+              # Wait for Selenium to be ready
+              echo "Waiting for Selenium..."
+              for i in {1..30}; do
+                if curl -f http://localhost:4444/wd/hub/status 2>/dev/null; then
+                  echo "Selenium is ready!"
+                  break
+                fi
+                echo "Waiting... ($i/30)"
+                sleep 2
+              done
+
+              # Start app server
+              npm start &
+              SERVER_PID=$!
+
+              # Wait for app server
+              sleep 5
+              curl http://localhost:8080
+
+              # Configure Nightwatch to use remote Selenium
+              export SELENIUM_HOST=localhost
+              export SELENIUM_PORT=4444
+
+              # Run tests
+              npm run test:headless || true
+
+              # Cleanup
+              kill $SERVER_PID || true
+            displayName: 'Run Chrome tests'
+            env:
+              CI: 'true'
+
+          - task: PublishTestResults@2
+            displayName: 'Publish test results'
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/tests_output/*.xml'
+              testRunTitle: 'Chrome Tests (Service Container)'
+            condition: always()
+
+      - job: FirefoxTests
+        displayName: 'Firefox Tests'
+        pool:
+          vmImage: 'ubuntu-latest'
+        services:
+          selenium:
+            image: selenium/standalone-firefox:latest
+            ports:
+              - 4444:4444
+            options: >-
+              --shm-size="2g"
+              --health-cmd="curl -f http://localhost:4444/wd/hub/status || exit 1"
+              --health-interval=10s
+              --health-timeout=5s
+              --health-retries=5
+        steps:
+          - task: NodeTool@0
+            displayName: 'Setup Node.js'
+            inputs:
+              versionSpec: '18.x'
+
+          - script: |
+              npm ci
+            displayName: 'Install dependencies'
+
+          - script: |
+              # Wait for Selenium
+              for i in {1..30}; do
+                if curl -f http://localhost:4444/wd/hub/status 2>/dev/null; then
+                  echo "Selenium is ready!"
+                  break
+                fi
+                sleep 2
+              done
+
+              # Start app server
+              npm start &
+              SERVER_PID=$!
+              sleep 5
+
+              # Configure for remote Selenium
+              export SELENIUM_HOST=localhost
+              export SELENIUM_PORT=4444
+
+              # Run tests
+              npm run test:firefox || true
+
+              # Cleanup
+              kill $SERVER_PID || true
+            displayName: 'Run Firefox tests'
+            env:
+              CI: 'true'
+
+          - task: PublishTestResults@2
+            displayName: 'Publish test results'
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/tests_output/*.xml'
+              testRunTitle: 'Firefox Tests (Service Container)'
+            condition: always()
+
+  - stage: BuildPublish
+    displayName: 'Build and Publish'
+    dependsOn: Test
+    condition: succeeded()
+    jobs:
+      - job: Build
+        displayName: 'Build Package'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '18.x'
+
+          - script: |
+              mkdir -p dist
+              cp index.html game.js styles.css dist/
+              echo "{\"version\": \"1.0.$(Build.BuildId)\"}" > dist/build-info.json
+            displayName: 'Prepare artifacts'
+
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: 'dist'
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/asteroids-$(Build.BuildNumber).zip'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'game'
+
+# Benefits of Service Containers:
+# ✅ No permission issues (tests run on VM, not in container)
+# ✅ Browsers still pre-installed (in service container)
+# ✅ Can access Selenium remotely
+# ✅ Better Azure DevOps integration
+# ✅ Health checks ensure services are ready

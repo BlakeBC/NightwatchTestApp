@@ -29,50 +29,48 @@ variables:
   NPM_CONFIG_CACHE: $(Pipeline.Workspace)/.npm
 
 stages:
-  # Main testing stage with Docker containers
-  - stage: DockerTest
-    displayName: 'Browser Tests (Docker)'
+  # Main testing stage - using standard VM with fast browser installation
+  - stage: Test
+    displayName: 'Browser Tests'
     jobs:
       - job: BrowserTests
         displayName: 'Multi-Browser Tests'
         strategy:
           matrix:
-            Chrome:
-              CONTAINER_IMAGE: 'selenium/standalone-chrome:latest'
+            ChromeHeadless:
               TEST_ENV: 'chrome.headless'
               BROWSER: 'Chrome'
+              INSTALL_BROWSER: 'chrome'
             Firefox:
-              CONTAINER_IMAGE: 'selenium/standalone-firefox:latest'
               TEST_ENV: 'firefox'
               BROWSER: 'Firefox'
-            Edge:
-              CONTAINER_IMAGE: 'selenium/standalone-edge:latest'
-              TEST_ENV: 'chrome.headless'
-              BROWSER: 'Edge'
-        container:
-          image: $(CONTAINER_IMAGE)
-          options: --shm-size="2g"
+              INSTALL_BROWSER: 'firefox'
+        pool:
+          vmImage: 'ubuntu-latest'
         steps:
-          # Install Node.js in the container
+          # Setup Node.js
+          - task: NodeTool@0
+            displayName: 'Setup Node.js'
+            inputs:
+              versionSpec: $(NODE_VERSION)
+
+          # Fast browser installation script
           - script: |
-              # Containers don't have Node.js by default, install it
-              apt-get update && apt-get install -y curl
-              curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-              apt-get install -y nodejs
+              echo "Installing $(BROWSER)..."
 
-              echo "Node version: $(node --version)"
-              echo "NPM version: $(npm --version)"
-
-              # Verify browser is pre-installed
-              echo "$(BROWSER) is pre-installed in this container!"
-              if [ "$(BROWSER)" = "Chrome" ]; then
-                google-chrome --version || echo "Chrome check"
-              elif [ "$(BROWSER)" = "Firefox" ]; then
-                firefox --version || echo "Firefox check"
-              elif [ "$(BROWSER)" = "Edge" ]; then
-                microsoft-edge --version || echo "Edge check"
+              if [ "$(INSTALL_BROWSER)" = "chrome" ]; then
+                # Fast Chrome installation
+                curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o chrome.deb
+                sudo apt-get update
+                sudo apt-get install -y ./chrome.deb
+                google-chrome --version
+              elif [ "$(INSTALL_BROWSER)" = "firefox" ]; then
+                # Fast Firefox installation
+                sudo apt-get update
+                sudo apt-get install -y firefox
+                firefox --version
               fi
-            displayName: 'Setup Node.js in container'
+            displayName: 'Install $(BROWSER)'
 
           # Cache npm packages
           - task: Cache@2
@@ -176,7 +174,7 @@ stages:
   - stage: BuildPublish
     displayName: 'Build and Publish'
     dependsOn:
-      - DockerTest
+      - Test
     condition: succeeded()
     jobs:
       - job: BuildAndPublish
@@ -229,9 +227,12 @@ stages:
               publishLocation: 'Container'
 
 # Pipeline Benefits:
-# ✅ Uses Docker containers with pre-installed browsers (no installation needed!)
-# ✅ Parallel testing for Chrome, Firefox, and Edge
-# ✅ 3-5x faster than installing browsers each time
-# ✅ Consistent browser versions across all runs
-# ✅ Simple, clean configuration
-# ✅ Optional fallback to standard VM testing
+# ✅ Fast browser installation (optimized)
+# ✅ Parallel testing for Chrome and Firefox
+# ✅ No Docker permission issues
+# ✅ Simple, reliable configuration
+# ✅ Works with Azure DevOps out of the box
+
+# Note: For Docker approach with pre-installed browsers, see:
+# - azure-pipelines-service.yml (uses service containers - recommended)
+# - azure-pipelines-docker.yml (multiple Docker approaches)
