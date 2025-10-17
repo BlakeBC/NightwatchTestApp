@@ -282,6 +282,141 @@ stages:
               testRunTitle: 'Nightwatch Tests - macOS Chrome'
             condition: always()
 
+  # Build and Publish Stage
+  - stage: BuildPublish
+    displayName: 'Build and Publish'
+    dependsOn:
+      - Test
+    condition: succeeded()
+    jobs:
+      - job: BuildAndPublish
+        displayName: 'Build and Publish Artifacts'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            displayName: 'Setup Node.js'
+            inputs:
+              versionSpec: '18.x'
+
+          - script: |
+              npm ci --production
+            displayName: 'Install production dependencies'
+
+          - script: |
+              # Create distribution directory
+              mkdir -p dist
+
+              # Copy game files
+              cp index.html dist/
+              cp game.js dist/
+              cp styles.css dist/
+
+              # Create package info
+              echo "{
+                \"name\": \"asteroids-game\",
+                \"version\": \"1.0.$(Build.BuildId)\",
+                \"buildNumber\": \"$(Build.BuildNumber)\",
+                \"buildId\": \"$(Build.BuildId)\",
+                \"sourceVersion\": \"$(Build.SourceVersion)\",
+                \"sourceBranch\": \"$(Build.SourceBranchName)\",
+                \"buildDate\": \"$(date -u +\"%Y-%m-%dT%H:%M:%SZ\")\"
+              }" > dist/build-info.json
+
+              echo "Build artifacts prepared in dist/ directory"
+            displayName: 'Prepare build artifacts'
+
+          - task: ArchiveFiles@2
+            displayName: 'Archive game files'
+            inputs:
+              rootFolderOrFile: 'dist'
+              includeRootFolder: false
+              archiveType: 'zip'
+              archiveFile: '$(Build.ArtifactStagingDirectory)/asteroids-game-$(Build.BuildNumber).zip'
+              replaceExistingArchive: true
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish game artifact'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/asteroids-game-$(Build.BuildNumber).zip'
+              ArtifactName: 'asteroids-game'
+              publishLocation: 'Container'
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish dist folder'
+            inputs:
+              PathtoPublish: 'dist'
+              ArtifactName: 'asteroids-game-dist'
+              publishLocation: 'Container'
+
+          # Generate deployment instructions
+          - script: |
+              cat > $(Build.ArtifactStagingDirectory)/deployment-instructions.md << EOF
+              # Deployment Instructions for Asteroids Game
+
+              ## Build Information
+              - Build Number: $(Build.BuildNumber)
+              - Build Date: $(date)
+              - Source Branch: $(Build.SourceBranchName)
+              - Commit: $(Build.SourceVersion)
+
+              ## Artifacts
+              - **asteroids-game-$(Build.BuildNumber).zip** - Complete game package
+              - **asteroids-game-dist** - Unzipped game files ready for deployment
+
+              ## Deployment Options
+
+              ### 1. Azure Static Web Apps
+              1. Extract the ZIP file or use the dist folder
+              2. Deploy to Azure Static Web Apps
+              3. No server-side configuration needed
+
+              ### 2. Azure App Service
+              1. Create a Web App (Node.js or Static)
+              2. Deploy the ZIP file using:
+                 - Azure CLI: \`az webapp deployment source config-zip\`
+                 - Portal: Deployment Center
+                 - VS Code: Azure extension
+
+              ### 3. Azure Storage Static Website
+              1. Create a storage account
+              2. Enable static website hosting
+              3. Upload files to \$web container
+              4. Access via storage endpoint
+
+              ### 4. IIS Server
+              1. Extract files to wwwroot
+              2. Configure as static content
+              3. Add MIME type for .json if needed
+
+              ### 5. Docker Container
+              1. Use nginx:alpine base image
+              2. Copy files to /usr/share/nginx/html
+              3. Expose port 80
+
+              ## Testing the Deployment
+              1. Navigate to the deployment URL
+              2. Verify game loads and is playable
+              3. Check browser console for errors
+              4. Test game controls
+
+              ## Files Included
+              - index.html - Main game page
+              - game.js - Game logic
+              - styles.css - Game styling
+              - build-info.json - Build metadata
+              EOF
+
+              echo "Deployment instructions created"
+            displayName: 'Create deployment instructions'
+
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish deployment instructions'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)/deployment-instructions.md'
+              ArtifactName: 'deployment-docs'
+              publishLocation: 'Container'
+
   # Summary Report
   - stage: Report
     displayName: 'Test Summary'
@@ -289,6 +424,7 @@ stages:
       - Test
       - WindowsTest
       - MacTest
+      - BuildPublish
     condition: always()
     jobs:
       - job: GenerateSummary
@@ -308,7 +444,13 @@ stages:
               echo "- Windows: Chrome Headless"
               echo "- macOS: Chrome Headless"
               echo ""
+              echo "Artifacts Published:"
+              echo "- asteroids-game-$(Build.BuildNumber).zip"
+              echo "- asteroids-game-dist (folder)"
+              echo "- deployment-docs"
+              echo ""
               echo "Check the Tests tab for detailed results"
+              echo "Check the Artifacts tab for deployable packages"
               echo "========================================"
             displayName: 'Display test summary'
 
