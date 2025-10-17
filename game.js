@@ -56,9 +56,12 @@ class Ship {
     }
 
     update(deltaTime) {
+        // Normalize deltaTime to 60 FPS (16.67ms per frame)
+        const normalizedDelta = Math.min(deltaTime / 16.67, 2); // Cap at 2x speed to prevent huge jumps
+
         // Update position
-        this.x += this.velocity.x * deltaTime;
-        this.y += this.velocity.y * deltaTime;
+        this.x += this.velocity.x * normalizedDelta;
+        this.y += this.velocity.y * normalizedDelta;
 
         // Apply friction
         this.velocity.x *= 0.99;
@@ -178,9 +181,12 @@ class Asteroid {
     }
 
     update(deltaTime) {
-        this.x += this.velocity.x;
-        this.y += this.velocity.y;
-        this.rotation += this.rotationSpeed;
+        // Normalize deltaTime for consistent speed
+        const normalizedDelta = Math.min(deltaTime / 16.67, 2);
+
+        this.x += this.velocity.x * normalizedDelta;
+        this.y += this.velocity.y * normalizedDelta;
+        this.rotation += this.rotationSpeed * normalizedDelta;
 
         // Wrap around screen
         if (this.x < -this.radius) this.x = canvas.width + this.radius;
@@ -237,9 +243,12 @@ class Bullet {
     }
 
     update(deltaTime) {
-        this.x += this.velocity.x;
-        this.y += this.velocity.y;
-        this.lifetime -= deltaTime;
+        // Normalize deltaTime for consistent speed
+        const normalizedDelta = Math.min(deltaTime / 16.67, 2);
+
+        this.x += this.velocity.x * normalizedDelta;
+        this.y += this.velocity.y * normalizedDelta;
+        this.lifetime -= deltaTime; // Keep lifetime in real time
 
         // Wrap around screen
         if (this.x < 0) this.x = canvas.width;
@@ -271,8 +280,11 @@ class Particle {
     }
 
     update(deltaTime) {
-        this.x += this.velocity.x;
-        this.y += this.velocity.y;
+        // Normalize deltaTime for consistent speed
+        const normalizedDelta = Math.min(deltaTime / 16.67, 2);
+
+        this.x += this.velocity.x * normalizedDelta;
+        this.y += this.velocity.y * normalizedDelta;
         this.lifetime -= deltaTime;
     }
 
@@ -329,6 +341,14 @@ function initGame() {
     bullets = [];
     particles = [];
 
+    // Update window references for testing
+    if (typeof window !== 'undefined') {
+        window.ship = ship;
+        window.asteroids = asteroids;
+        window.bullets = bullets;
+        window.particles = particles;
+    }
+
     // Create initial asteroids
     createAsteroids(gameState.level + 3);
 
@@ -359,7 +379,14 @@ function updateDisplay() {
 // Game loop
 let lastTime = 0;
 function gameLoop(timestamp) {
-    const deltaTime = timestamp - lastTime;
+    // Initialize lastTime on first frame
+    if (lastTime === 0) {
+        lastTime = timestamp;
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+
+    const deltaTime = Math.min(timestamp - lastTime, 100); // Cap deltaTime to 100ms to prevent huge jumps
     lastTime = timestamp;
 
     if (!gameState.running || gameState.paused) {
@@ -490,6 +517,7 @@ function startGame() {
     pauseButton.disabled = false;
     gameOverScreen.classList.add('hidden');
 
+    lastTime = 0; // Reset frame timing
     requestAnimationFrame(gameLoop);
 }
 
@@ -560,3 +588,20 @@ resumeButton.addEventListener('click', togglePause);
 
 // Initialize display
 updateDisplay();
+
+// Expose game objects for testing
+if (typeof window !== 'undefined') {
+    window.gameState = gameState;
+    window.ship = ship;
+    window.asteroids = asteroids;
+    window.bullets = bullets;
+    window.particles = particles;
+    window.updateDisplay = updateDisplay;
+    window.endGame = endGame;
+    window.createExplosion = createExplosion;
+    window.checkCollision = checkCollision;
+    window.Ship = Ship;
+    window.Asteroid = Asteroid;
+    window.Bullet = Bullet;
+    window.Particle = Particle;
+}
