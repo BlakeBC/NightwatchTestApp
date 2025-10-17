@@ -152,6 +152,9 @@ stages:
           - script: |
               echo "Running tests for $(BROWSER)..."
 
+              # Set CI flag for test-runner.js
+              export CI=true
+
               # The test-runner.js will handle server startup
               # Use the test runner which manages the server automatically
               npm run test:$(TEST_ENV)
@@ -164,17 +167,33 @@ stages:
             displayName: 'Run Nightwatch tests - $(BROWSER)'
             env:
               DISPLAY: ':99.0'
+              CI: 'true'
 
-          # Alternative: Run tests using global hooks
+          # Alternative: Start server separately if test-runner fails
           - script: |
-              echo "Alternative test run (if previous failed)..."
+              echo "Alternative approach: Starting server separately..."
 
-              # This uses the global hooks to manage server
+              # Start server in background using CI-specific starter
+              node start-server-ci.js &
+              SERVER_PID=$!
+              echo "Server started with PID: $SERVER_PID"
+
+              # Give server time to start
+              sleep 5
+
+              # Verify server is running
+              curl -f http://localhost:8080 || echo "Server check failed"
+
+              # Run tests directly with Nightwatch
               npx nightwatch --env $(TEST_ENV) || true
+
+              # Kill server
+              kill $SERVER_PID 2>/dev/null || true
             displayName: 'Alternative test run - $(BROWSER)'
             condition: failed()
             env:
               DISPLAY: ':99.0'
+              CI: 'true'
 
           # Generate JUnit report
           - script: |

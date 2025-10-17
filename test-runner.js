@@ -11,7 +11,7 @@ const path = require('path');
 
 const SERVER_PORT = 8080;
 const SERVER_HOST = 'localhost';
-const MAX_WAIT_TIME = 30000; // 30 seconds
+const MAX_WAIT_TIME = process.env.CI ? 60000 : 30000; // 60 seconds in CI, 30 seconds locally
 const CHECK_INTERVAL = 500; // Check every 500ms
 
 // Colors for console output
@@ -74,16 +74,30 @@ function startServer() {
   return new Promise((resolve, reject) => {
     log('🚀 Starting HTTP server...', colors.cyan);
 
-    const server = spawn('npx', ['http-server', '-p', SERVER_PORT.toString(), '--silent'], {
+    // Remove --silent flag as it might cause issues in CI
+    const serverArgs = ['http-server', '-p', SERVER_PORT.toString()];
+
+    // Add CORS and cache settings for CI environment
+    if (process.env.CI) {
+      serverArgs.push('--cors');
+      serverArgs.push('-c-1'); // Disable cache
+    }
+
+    const server = spawn('npx', serverArgs, {
       stdio: 'pipe',
       shell: true,
       detached: process.platform !== 'win32'
     });
 
     let serverOutput = '';
+    let serverReady = false;
 
     server.stdout.on('data', (data) => {
       serverOutput += data.toString();
+      // Check if server has started (http-server outputs its URLs when ready)
+      if (!serverReady && serverOutput.includes('Available on:')) {
+        serverReady = true;
+      }
     });
 
     server.stderr.on('data', (data) => {
@@ -98,16 +112,24 @@ function startServer() {
     });
 
     // Give server time to start, then check if it's running
+    // Increased timeout for CI environments
+    const startupTimeout = process.env.CI ? 5000 : 2000;
+
     setTimeout(async () => {
       const isRunning = await waitForServer();
       if (isRunning) {
         log(`✅ Server running at http://${SERVER_HOST}:${SERVER_PORT}`, colors.green);
         resolve(server);
       } else {
+        // Log server output for debugging in CI
+        if (process.env.CI && serverOutput) {
+          log('Server output:', colors.yellow);
+          log(serverOutput, colors.yellow);
+        }
         server.kill();
         reject(new Error('Server failed to start within timeout period'));
       }
-    }, 2000);
+    }, startupTimeout);
   });
 }
 
