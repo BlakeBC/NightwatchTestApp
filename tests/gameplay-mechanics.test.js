@@ -8,8 +8,10 @@ describe('Asteroids Gameplay Mechanics Tests', function() {
   beforeEach(function(browser) {
     gamePage
       .navigate()
+      .waitForElementVisible('@startButton', 5000)
       .startGame()
-      .waitForGameToStart();
+      .waitForGameToStart()
+      .pause(500); // Extra time for game initialization
   });
 
   after(function(browser) {

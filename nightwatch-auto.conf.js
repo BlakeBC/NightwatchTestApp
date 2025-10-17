@@ -5,7 +5,7 @@
 module.exports = {
   src_folders: ['tests'],
   page_objects_path: ['tests/page-objects'],
-  custom_commands_path: [],
+  custom_commands_path: ['tests/custom-commands'],
   custom_assertions_path: [],
   plugins: [],
   globals_path: './nightwatch.globals.js',

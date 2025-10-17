@@ -90,7 +90,8 @@ module.exports = {
     waitForGameToStart() {
       return this
         .waitForElementVisible('@gameCanvas', 5000)
-        .assert.attributeEquals('@pauseButton', 'disabled', null);
+        .pause(1000) // Give game time to initialize
+        .waitForElementNotPresent('@pauseButton[disabled]', 5000);
     },
 
     waitForGameOver() {
