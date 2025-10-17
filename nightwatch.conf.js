@@ -3,6 +3,9 @@ module.exports = {
   // if this is not specified, the test source must be passed as the second argument to the test runner.
   src_folders: ['tests'],
 
+  // Exclude page objects and custom commands from test runs
+  exclude: ['tests/page-objects/**', 'tests/custom-commands/**'],
+
   // See https://nightwatchjs.org/guide/concepts/page-object-model.html
   page_objects_path: ['tests/page-objects'],
 
@@ -87,8 +90,10 @@ module.exports = {
             '--headless',
             '--no-sandbox',
             '--disable-dev-shm-usage',
-            '--window-size=1280,800'
-          ]
+            '--window-size=1920,1080',  // Larger window for centered content
+            '--start-maximized'
+          ],
+          w3c: true
         }
       }
     },

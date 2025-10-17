@@ -35,13 +35,24 @@ describe('Asteroids Game Controls Tests', function() {
   });
 
   it('should pause and resume game with P key', function(browser) {
-    gamePage
-      .pressPause()
-      .pause(500)
-      .assert.visible('@pauseScreen')
-      .pressPause()
-      .pause(500)
-      .assert.cssClassPresent('@pauseScreen', 'hidden');
+    // Use direct execute instead of pressPause which has issues
+    browser.execute(function() {
+      // Simulate P key press
+      const event = new KeyboardEvent('keydown', { key: 'p' });
+      document.dispatchEvent(event);
+    });
+
+    browser.pause(500);
+    gamePage.assert.visible('@pauseScreen');
+
+    browser.execute(function() {
+      // Press P again to resume
+      const event = new KeyboardEvent('keydown', { key: 'p' });
+      document.dispatchEvent(event);
+    });
+
+    browser.pause(500);
+    gamePage.assert.cssClassPresent('@pauseScreen', 'hidden');
   });
 
   it('should reset game when reset button is clicked', function(browser) {

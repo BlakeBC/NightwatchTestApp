@@ -4,6 +4,7 @@
 
 module.exports = {
   src_folders: ['tests'],
+  exclude: ['tests/page-objects/**', 'tests/custom-commands/**'],
   page_objects_path: ['tests/page-objects'],
   custom_commands_path: ['tests/custom-commands'],
   custom_assertions_path: [],
@@ -78,7 +79,7 @@ module.exports = {
             '--no-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--window-size=1280,800'
+            '--window-size=1920,1080'  // Larger window for centered content
           ],
           w3c: true
         }

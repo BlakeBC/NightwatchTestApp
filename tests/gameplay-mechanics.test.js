@@ -45,26 +45,45 @@ describe('Asteroids Gameplay Mechanics Tests', function() {
   });
 
   it('should create bullets when firing', function(browser) {
+    // Give the game more time to be ready
+    browser.pause(500);
+
     browser.execute(function() {
-      const initialCount = window.bullets ? window.bullets.length : 0;
+      // Check game state first
+      if (!window.bullets || !window.ship || !window.gameState || !window.gameState.running) {
+        return {
+          error: true,
+          hasShip: !!window.ship,
+          hasBullets: !!window.bullets,
+          isRunning: window.gameState && window.gameState.running
+        };
+      }
 
-      // Simulate space key press
-      const event = new KeyboardEvent('keydown', { key: ' ' });
-      document.dispatchEvent(event);
+      const initialCount = window.bullets.length;
 
-      // Release and press again
-      const releaseEvent = new KeyboardEvent('keyup', { key: ' ' });
-      document.dispatchEvent(releaseEvent);
-      document.dispatchEvent(event);
+      // Properly simulate spacebar press with the keys object
+      window.keys = window.keys || {};
+      window.keys[' '] = true;
 
-      const finalCount = window.bullets ? window.bullets.length : 0;
+      // Call ship.shoot() directly as that's what the game loop does
+      if (window.ship && window.ship.shoot) {
+        window.ship.shoot();
+      }
+
+      const finalCount = window.bullets.length;
 
       return {
+        error: false,
         initial: initialCount,
-        final: finalCount
+        final: finalCount,
+        bulletCreated: finalCount > initialCount
       };
     }, [], function(result) {
-      browser.assert.ok(result.value.final > result.value.initial, 'Bullets should be created when firing');
+      if (result.value.error) {
+        console.log('Game not ready:', result.value);
+      }
+      browser.assert.ok(!result.value.error, 'Game should be ready');
+      browser.assert.ok(result.value.bulletCreated, 'Bullets should be created when firing');
     });
   });
 

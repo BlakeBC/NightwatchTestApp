@@ -5,7 +5,11 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: Asteroids game with comprehensive Nightwatch tests and Azure DevOps pipelines\n\n- Complete Asteroids game implementation with HTML5 Canvas\n- Comprehensive Nightwatch E2E test suite (6 test files)\n- Azure DevOps pipeline configurations (standard and advanced)\n- Test coverage includes: initialization, controls, gameplay, UI, performance, and edge cases\n- Page Object pattern for maintainable tests\n- Multi-browser testing support (Chrome, Firefox, headless modes)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(del:*)",
+      "Bash(curl:*)",
+      "Bash(npm run test:headless:*)",
+      "Bash(npx nightwatch:*)"
     ],
     "deny": [],
     "ask": []

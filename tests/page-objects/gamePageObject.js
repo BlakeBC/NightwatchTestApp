@@ -1,7 +1,5 @@
 module.exports = {
-  url: function() {
-    return this.api.launch_url;
-  },
+  url: 'http://localhost:8080',
 
   elements: {
     // Canvas
@@ -91,7 +89,7 @@ module.exports = {
       return this
         .waitForElementVisible('@gameCanvas', 5000)
         .pause(1000) // Give game time to initialize
-        .waitForElementNotPresent('@pauseButton[disabled]', 5000);
+        .assert.enabled('@pauseButton');
     },
 
     waitForGameOver() {
