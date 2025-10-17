@@ -18,10 +18,18 @@ module.exports = {
   // See https://nightwatchjs.org/guide/concepts/test-globals.html
   globals_path: '',
 
-  webdriver: {},
+  webdriver: {
+    start_process: true,
+    server_path: '',
+    cli_args: {
+      'webdriver.chrome.driver': '',
+      'webdriver.gecko.driver': ''
+    }
+  },
 
   test_workers: {
-    enabled: true
+    enabled: true,
+    workers: 'auto'
   },
 
   test_settings: {
@@ -53,16 +61,19 @@ module.exports = {
           args: [
             '--no-sandbox',
             '--disable-dev-shm-usage',
+            '--disable-gpu',
             '--window-size=1280,800'
-          ]
+          ],
+          w3c: true
         }
       },
 
       webdriver: {
         start_process: true,
-        server_path: '',
+        server_path: require('chromedriver').path,
+        port: 9515,
         cli_args: [
-          // --verbose
+          '--port=9515'
         ]
       }
     },
@@ -89,18 +100,18 @@ module.exports = {
           acceptInsecureCerts: true,
           'moz:firefoxOptions': {
             args: [
-              // '-headless',
-              // '-verbose'
+              '--width=1280',
+              '--height=800'
             ]
           }
         }
       },
       webdriver: {
         start_process: true,
-        server_path: '',
+        server_path: require('geckodriver').path,
+        port: 4444,
         cli_args: [
-          // very verbose geckodriver logs
-          // '-vv'
+          '--port=4444'
         ]
       }
     },
