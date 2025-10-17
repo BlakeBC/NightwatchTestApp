@@ -1,0 +1,285 @@
+# Azure DevOps Pipeline using Docker containers with pre-installed browsers
+# This pipeline uses Selenium Docker images that have browsers pre-installed
+# No need to install Chrome or Firefox manually!
+
+trigger:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+  paths:
+    exclude:
+      - README.md
+      - docs/*
+      - '*.md'
+
+pr:
+  branches:
+    include:
+      - main
+      - master
+      - develop
+
+variables:
+  NODE_VERSION: '18.x'
+  NPM_CONFIG_CACHE: $(Pipeline.Workspace)/.npm
+
+stages:
+  # Docker-based Testing Stage
+  - stage: DockerTest
+    displayName: 'Docker Browser Tests'
+    jobs:
+      - job: DockerChromeTest
+        displayName: 'Chrome Tests (Docker)'
+        pool:
+          vmImage: 'ubuntu-latest'
+        container:
+          image: selenium/standalone-chrome:latest
+          options: --shm-size="2g"
+        steps:
+          - task: NodeTool@0
+            displayName: 'Setup Node.js'
+            inputs:
+              versionSpec: $(NODE_VERSION)
+
+          - script: |
+              npm ci
+            displayName: 'Install dependencies'
+
+          - script: |
+              # Chrome is pre-installed in this container
+              google-chrome --version || echo "Chrome version check"
+
+              # Start our app server
+              npm start &
+              SERVER_PID=$!
+
+              # Wait for server to be ready
+              sleep 5
+              curl http://localhost:8080 || echo "Server check"
+
+              # Run tests
+              npm run test:headless
+
+              # Cleanup
+              kill $SERVER_PID || true
+            displayName: 'Run Chrome tests in Docker'
+            env:
+              CI: 'true'
+
+      - job: DockerFirefoxTest
+        displayName: 'Firefox Tests (Docker)'
+        pool:
+          vmImage: 'ubuntu-latest'
+        container:
+          image: selenium/standalone-firefox:latest
+          options: --shm-size="2g"
+        steps:
+          - task: NodeTool@0
+            displayName: 'Setup Node.js'
+            inputs:
+              versionSpec: $(NODE_VERSION)
+
+          - script: |
+              npm ci
+            displayName: 'Install dependencies'
+
+          - script: |
+              # Firefox is pre-installed in this container
+              firefox --version || echo "Firefox version check"
+
+              # Start our app server
+              npm start &
+              SERVER_PID=$!
+
+              # Wait for server to be ready
+              sleep 5
+              curl http://localhost:8080 || echo "Server check"
+
+              # Run tests
+              npm run test:firefox
+
+              # Cleanup
+              kill $SERVER_PID || true
+            displayName: 'Run Firefox tests in Docker'
+            env:
+              CI: 'true'
+
+  # Alternative approach using service containers
+  - stage: ServiceContainerTest
+    displayName: 'Tests with Service Containers'
+    jobs:
+      - job: ChromeServiceTest
+        displayName: 'Chrome with Service Container'
+        pool:
+          vmImage: 'ubuntu-latest'
+        services:
+          selenium:
+            image: selenium/standalone-chrome:latest
+            ports:
+              - 4444:4444
+            options: --shm-size="2g"
+        steps:
+          - task: NodeTool@0
+            displayName: 'Setup Node.js'
+            inputs:
+              versionSpec: $(NODE_VERSION)
+
+          - script: |
+              npm ci
+            displayName: 'Install dependencies'
+
+          - script: |
+              # Update Nightwatch config to use remote Selenium
+              echo "Setting up for remote Selenium..."
+
+              # Start app server
+              npm start &
+              SERVER_PID=$!
+
+              # Wait for server
+              sleep 5
+
+              # Check Selenium is available
+              curl http://localhost:4444/status || echo "Selenium status check"
+
+              # Run tests against remote Selenium
+              npx nightwatch --env chrome.remote || true
+
+              # Cleanup
+              kill $SERVER_PID || true
+            displayName: 'Run tests with Selenium service'
+            env:
+              CI: 'true'
+              SELENIUM_HOST: 'localhost'
+              SELENIUM_PORT: '4444'
+
+  # Playwright container approach (alternative)
+  - stage: PlaywrightTest
+    displayName: 'Playwright Container Tests'
+    jobs:
+      - job: PlaywrightAllBrowsers
+        displayName: 'All Browsers (Playwright)'
+        pool:
+          vmImage: 'ubuntu-latest'
+        container:
+          image: mcr.microsoft.com/playwright:v1.40.0-focal
+          options: --ipc=host
+        steps:
+          - script: |
+              # This container has Chrome, Firefox, and WebKit pre-installed
+              echo "Playwright container with all browsers"
+
+              # Install Node dependencies
+              npm ci
+
+              # Start server
+              npm start &
+              SERVER_PID=$!
+
+              # Wait for server
+              sleep 5
+
+              # Run Nightwatch tests
+              npm run test:headless || true
+
+              # Cleanup
+              kill $SERVER_PID || true
+            displayName: 'Run tests in Playwright container'
+            env:
+              CI: 'true'
+
+  # Original approach for comparison
+  - stage: StandardTest
+    displayName: 'Standard VM Tests'
+    jobs:
+      - job: StandardChromeTest
+        displayName: 'Chrome on Standard VM'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - task: NodeTool@0
+            displayName: 'Setup Node.js'
+            inputs:
+              versionSpec: $(NODE_VERSION)
+
+          - script: |
+              npm ci
+            displayName: 'Install dependencies'
+
+          - script: |
+              # Install Chrome (needed on standard VM)
+              wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+              sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+              sudo apt-get update
+              sudo apt-get install -y google-chrome-stable
+
+              google-chrome --version
+            displayName: 'Install Chrome'
+
+          - script: |
+              # Use test-runner which manages server
+              npm run test:headless
+            displayName: 'Run tests'
+            env:
+              CI: 'true'
+              DISPLAY: ':99.0'
+
+          - task: PublishTestResults@2
+            displayName: 'Publish test results'
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/tests_output/*.xml'
+              testRunTitle: 'Standard VM Chrome Tests'
+            condition: always()
+
+  # Summary comparison
+  - stage: Summary
+    displayName: 'Performance Summary'
+    dependsOn:
+      - DockerTest
+      - ServiceContainerTest
+      - PlaywrightTest
+      - StandardTest
+    condition: always()
+    jobs:
+      - job: CompareSummary
+        displayName: 'Compare Approaches'
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          - script: |
+              echo "========================================"
+              echo "     TESTING APPROACHES COMPARISON      "
+              echo "========================================"
+              echo ""
+              echo "1. Docker Container Approach:"
+              echo "   - Browsers pre-installed in container"
+              echo "   - Fast startup, no installation needed"
+              echo "   - selenium/standalone-chrome & firefox"
+              echo ""
+              echo "2. Service Container Approach:"
+              echo "   - Selenium runs as a service"
+              echo "   - Tests connect to remote Selenium"
+              echo "   - Good for parallel testing"
+              echo ""
+              echo "3. Playwright Container:"
+              echo "   - All browsers in one container"
+              echo "   - Microsoft maintained"
+              echo "   - Chrome, Firefox, WebKit included"
+              echo ""
+              echo "4. Standard VM Approach:"
+              echo "   - Requires browser installation"
+              echo "   - More setup time needed"
+              echo "   - Traditional approach"
+              echo ""
+              echo "========================================"
+            displayName: 'Display comparison summary'
+
+# Benefits of using Docker containers:
+# 1. No need to install browsers - they're pre-installed
+# 2. Consistent environment across runs
+# 3. Faster pipeline execution (no installation step)
+# 4. Better isolation and cleanup
+# 5. Can run multiple browser versions easily
